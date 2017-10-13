@@ -1,11 +1,26 @@
+import os = require('os');
 import api = require('@kubernetes/typescript-node');
 import azureResource = require('azure-arm-resource');
 import providers = require('./providers');
+import aciClient = require('azure-arm-containerinstance');
 
 let handleError = (err: Error) => {
     console.log('Error!');
     console.log(err);
 };
+
+async function getInternalIP()
+{
+    let nwInts = os.networkInterfaces();
+    for(var nwInt in nwInts) {
+        let nwIntObject = nwInts[nwInt];
+        if (nwIntObject[0]['internal'] == false) {
+            // Return the first interface seen.
+            return nwIntObject[0]['address'];
+        }
+    }
+    return '';
+}
 
 let provider_registered = false;
 
@@ -68,8 +83,13 @@ let updateNode = async (name: string, rsrcClient: azureResource.ResourceManageme
                 architecture: "amd64"
             } as api.V1NodeSystemInfo,
             conditions: await getConditions(rsrcClient, transition),
-            addresses: [] as Array<api.V1NodeAddress>
         } as api.V1NodeStatus;
+        node.status.addresses = [
+            {
+                'address': await getInternalIP(),
+                'type': 'InternalIP'
+            }
+        ] as Array<api.V1NodeAddress>
         node.status.allocatable = {
             "cpu": "20",
             "memory": "100Gi",

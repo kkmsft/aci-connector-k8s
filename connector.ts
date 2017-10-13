@@ -2,11 +2,13 @@ import config = require('@kubernetes/typescript-node');
 import deleter = require('./deleter');
 import creator = require('./creator');
 import synchronizer = require('./synchronizer');
-import node = require('./node')
+import node = require('./node');
+import apiServer = require('./nodeapiserver');
 
 import path = require('path');
 import msRestAzure = require('ms-rest-azure');
 import azureResource = require('azure-arm-resource');
+import containerInstanceApis = require('azure-arm-containerinstance');
 
 let interactiveCredentials = (): Promise<Object> => {
     let result = new Promise((resolve, reject) => {
@@ -72,9 +74,13 @@ let main = async () => {
     let keepRunning = () => { return running; }
 
     let resourceClient = new azureResource.ResourceManagementClient(credentials, subscriptionId);
+    let containerInstance = new containerInstanceApis(credentials, subscriptionId);
     let k8sApi = config.Config.defaultClient();
 
     node.Update(k8sApi, resourceClient, keepRunning);
+    // TODO: If there is environment variable we can use instead of 10250 for the kubelet
+    // port, we need to replace that with the 10250 in next line.
+    apiServer.start(containerInstance, resourceGroup, 10250, keepRunning);
     creator.ContainerCreator(k8sApi, new Date(), resourceClient, keepRunning);
     deleter.ContainerDeleter(k8sApi, resourceClient, keepRunning);
     synchronizer.Synchronize(k8sApi, new Date(), resourceClient, resourceGroup, region, keepRunning);

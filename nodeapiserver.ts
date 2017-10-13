@@ -10,15 +10,14 @@ export async function start(aci: aciClient, resourceGroupName: string, port: num
             cert: fs.readFileSync('/app/node-cert.pem'),
             key: fs.readFileSync('/app/node-key.pem')
         }
-        console.log("HTTPs api server starting at: %d", port);
+        console.log('HTTPs api server starting at: %d', port);
         https.createServer(options, (req, res) => {
             console.log('Got request...');
             var errorMsg: string = '';
-            console.log("len error:", errorMsg.length);
             if ('GET' === req.method) {
                 var path = url.parse(req.url)['path'];
                 var aciInfo = path.split('/', 5);
-                console.log(aciInfo[1], aciInfo[2], aciInfo[3], aciInfo[4]);
+                console.log('Get logs:', aciInfo[1], aciInfo[2], aciInfo[3], aciInfo[4]);
                 var cmd = aciInfo[1]; // The string starts with '/' so skip first empty string.
                 if  (5 == aciInfo.length && 'containerLogs' === cmd) {
                     var namespace = aciInfo[2];
@@ -30,7 +29,7 @@ export async function start(aci: aciClient, resourceGroupName: string, port: num
                             res.statusCode = 404;
                             res.end(err);
                         } else {
-                            //console.log("Logs got\n", result['content']);
+                            //console.log('Logs got\n', result['content']);
                             res.writeHead(200);
                             res.end(result['content']);
                         }
@@ -38,23 +37,23 @@ export async function start(aci: aciClient, resourceGroupName: string, port: num
                     });
                 } else {
                     if (aciInfo.length !=5) {
-                        errorMsg = "Wrong command length: " + aciInfo.length;
+                        errorMsg = 'Wrong command length: ' + aciInfo.length;
                     } else {
-                        errorMsg = "Wrong command: " + cmd;
+                        errorMsg = 'Wrong command: ' + cmd;
                     }
                 }
             } else {
-                errorMsg = "Received request: "+req.method;
+                errorMsg = 'Received request: '+req.method;
             }
 
             if (errorMsg.length > 0) {
-                console.log("Returning error:", errorMsg);
+                console.log('Returning error:', errorMsg);
                 // Return error for anything other than get.
                 res.statusCode = 404;
                 res.end(errorMsg);
             }
         }).listen(port);
-        console.log("Started the server....");
+        console.log('Started the server....');
     } catch (Exception) {
         console.log(Exception);
     }

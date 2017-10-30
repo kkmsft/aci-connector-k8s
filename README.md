@@ -20,7 +20,7 @@ Once the connector is registered as a node named `aci-connector`, you can use `n
 ## Requirements
 
  1. A working `az` command-line client - [Install azure cli](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli) 
- 2. A Kubernetes cluster with a working `kubectl` - [Set up a Kubernetes cluster on Azure](https://docs.microsoft.com/en-us/azure/container-service/kubernetes/container-service-kubernetes-walkthrough)
+ 2. A Kubernetes cluster with a working `kubectl` - [Set up a Kubernetes cluster on Azure](https://docs.microsoft.com/en-us/azure/aks/kubernetes-walkthrough)
 
 ## Current Features
 In addition to the provided examples directory, the following Kubernetes features are currently supported when defined within a Kubernetes Pod manifest. This list is subject to change as we improve the aci-connector.
@@ -28,6 +28,7 @@ In addition to the provided examples directory, the following Kubernetes feature
 * Commands
 * ImagePullSecrets
 * [Azure file share as volume](examples/persistent-store/azurefile/README.azurefile.md)
+* Windows ACI support through the microsoft/aci-connector-k8s:canary image
 
 ## Limitations
 The following Kubernetes features are not currently supported as part of the aci-connector.
@@ -39,18 +40,17 @@ The following Kubernetes features are not currently supported as part of the aci
 * kubectl exec
 
 ## Quickstart
-
-1. Edit `examples/aci-connector.yaml` and supply environment variables
-2. Run the ACI Connector with `kubectl create -f examples/aci-connector.yaml`
-3. Wait for `kubectl get nodes` to display the `aci-connector` node
-4. Run an NGINX pod via ACI using `kubectl create -f examples/nginx-pod.yaml`
+1. Run the generateManifest.py script
+2. Deploy the ACI Connector
+3. Return the nodes in your cluster 
+4. Deploy an NGINX pod to ACI 
 5. Access the NGINX pod via its public address
 
 ## Usage
 
 ### Create a Resource Group
 
-The ACI Connector will create each container instance in a specified resource group.  You can create a new resource group with:
+The ACI Connector will create each container instance in a specified resource group.  You can create a new resource group with or use your existing Azure Container Service cluster's resource group:
 
 ```console
 $ az group create -n aci-test -l westus
@@ -66,40 +66,14 @@ $ az group create -n aci-test -l westus
 }
 ```
 
-Edit the `examples/aci-connector.yaml` and put the name of the resource group into the `ACI_RESOURCE_GROUP` environment variable.
+### Run the script
 
-### Create a Service Principal
-
-A service principal is required to allow the ACI Connector to create resources in your Azure subscription.  You can create one using the `az` CLI using the instructions below.
-
-Find your `subscriptionId` with the `az` CLI:
+From within the `examples` folder run the `generateManifest.py` script. The `generateManifest.py` script will create a service principal role at the subscription scope and populate the `examples/aci-connector.yaml` file. 
 
 ```console
-$ az account list -o table
-Name                                             CloudName    SubscriptionId                        State    IsDefault
------------------------------------------------  -----------  ------------------------------------  -------  -----------
-Pay-As-You-Go                                    AzureCloud   12345678-9012-3456-7890-123456789012  Enabled  True
+$ python3 generateManifest.py --resource-group <resource group> --location <location> --subscription-id <subscription id>
+Creating Service Principle
 ```
-
-Use `az` to create a Service Principal that can perform operations on your subscription:
-
-```console
-$ az ad sp create-for-rbac --role=Contributor --scopes /subscriptions/<subscriptionId>/
-{
-  "appId": "<redacted>",
-  "displayName": "azure-cli-2017-07-19-19-13-19",
-  "name": "http://azure-cli-2017-07-19-19-13-19",
-  "password": "<redacted>",
-  "tenant": "<redacted>"
-}
-```
-
-Edit the `examples/aci-connector.yaml` and input environment variables using the values above:
-
-- AZURE_CLIENT_ID: insert `appId`
-- AZURE_CLIENT_KEY: insert `password`
-- AZURE_TENANT_ID: insert `tenant`
-- AZURE_SUBSCRIPTION_ID: insert `subscriptionId`
 
 ### Confirm Microsoft.ContainerInstance provider is registered
 
@@ -114,11 +88,10 @@ $ az provider list -o table | grep ContainerInstance
 Microsoft.ContainerInstance             Registered
 ```
 
-
 ### Install the ACI Connector
 
 ```console
-$ kubectl create -f examples/aci-connector.yaml 
+$ kubectl create -f examples/example-aci-connector.yaml 
 deployment "aci-connector" created
 
 $ kubectl get nodes -w
@@ -198,6 +171,17 @@ To force a Pod onto Azure Container Instances, you can either explicitly specify
 To use the latest canary release you can patch the aci-connector deployment to update the container tag using the following command:
 ```console
 $ kubectl set image deploy/aci-connector aci-connector=microsoft/aci-connector-k8s:canary
+```
+### Windows Support 
+
+Use the canary build specified above and you will see two connectors deployed as nodes on your Kubernetes cluster. Node select to aci-connector-0 for Linux ACI deployments and to aci-connector-1 for Windows ACI deployments. 
+
+```console 
+$ kubectl get nodes
+NAME                        STATUS    AGE       VERSION
+aci-connector-0             Ready     8m        v1.6.6
+aci-connector-1             Ready     8m        v1.6.6
+k8s-mycluster1-10386372-0   Ready     8d        v1.7.7
 ```
 
 ## Development Instructions

@@ -9,17 +9,18 @@ let handleError = (err: Error) => {
     console.log(err);
 };
 
-async function getInternalIP()
-{
+function getInternalIP(): string {
     let nwInts = os.networkInterfaces();
-    for(var nwInt in nwInts) {
+    for(let nwInt in nwInts) {
         let nwIntObject = nwInts[nwInt];
-        if (nwIntObject[0]['internal'] == false) {
+        // Considering only the 0th index address
+        // TODO: Handle other index address scenarios.
+        if (nwIntObject[0]['internal'] === false) {
             // Return the first interface seen.
             return nwIntObject[0]['address'];
         }
     }
-    return '';
+    return undefined;
 }
 
 let provider_registered = false;
@@ -84,12 +85,19 @@ let updateNode = async (name: string, rsrcClient: azureResource.ResourceManageme
             } as api.V1NodeSystemInfo,
             conditions: await getConditions(rsrcClient, transition),
         } as api.V1NodeStatus;
-        node.status.addresses = [
-            {
-                'address': await getInternalIP(),
-                'type': 'InternalIP'
-            }
-        ] as Array<api.V1NodeAddress>
+        let internalIP = getInternalIP();
+        if (internalIP != undefined) {
+            // Internal ip is essential to make the 'kubectl
+            // logs' work. Connnector would work without
+            // this, so we can ignore the 'undefined'
+            // internal ip
+            node.status.addresses = [
+                {
+                    'address': internalIP,
+                    'type': 'InternalIP'
+                }
+            ] as Array<api.V1NodeAddress>;
+        }
         node.status.allocatable = {
             "cpu": "20",
             "memory": "100Gi",
